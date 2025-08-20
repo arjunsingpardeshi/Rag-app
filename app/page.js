@@ -1,103 +1,156 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import React, { useState, useEffect } from "react";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+
+export default function RAGApp() {
+  const [darkMode, setDarkMode] = useState(false);
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState("");
+
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+  }, [darkMode]);
+
+  const buttonClass =
+    "bg-[#39ff14] hover:bg-[#32e212] text-black font-semibold px-4 py-2 rounded-lg shadow-md transition";
+
+  const handleSend = () => {
+    if (!input.trim()) return;
+
+    const userMessage = { sender: "user", text: input.trim() };
+    setMessages((prev) => [...prev, userMessage]);
+    setInput("");
+
+    setTimeout(() => {
+      const botMessage = {
+        sender: "bot",
+        text: `You said: "${userMessage.text}" 🤖`,
+      };
+      setMessages((prev) => [...prev, botMessage]);
+    }, 800);
+  };
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              app/page.js
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    <div className="min-h-screen bg-gray-950 text-gray-100 p-6">
+      {/* Header */}
+      <header className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold text-[#96a793]">RAG Application</h1>
+        <div className="flex items-center gap-2">
+          <span className="text-sm">🌸 Neon</span>
+          <Switch checked={darkMode} onCheckedChange={setDarkMode} />
+          <span className="text-sm">🌙 Dark</span>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      </header>
+
+      {/* Layout */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Left Column */}
+        <div className="flex flex-col gap-6">
+          {/* Add Data */}
+          <Card className="bg-gray-900 border border-[#96a793]">
+            <CardHeader>
+              <CardTitle className="text-[#96a793]">Add Data</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4">
+              <Textarea
+                placeholder="Paste text content..."
+                className="bg-gray-800 border border-[#96a793]/40"
+              />
+              <Button className={buttonClass}>Add Text</Button>
+              <Input
+                type="file"
+                className="text-sm bg-gray-800 border border-[#96a793]/40"
+              />
+              <Input
+                placeholder="https://example.com"
+                className="bg-gray-800 border border-[#96a793]/40"
+              />
+              <Button className={buttonClass}>Submit</Button>
+            </CardContent>
+          </Card>
+
+          {/* Data Store */}
+          <Card className="bg-gray-900 border border-[#96a793]">
+            <CardHeader>
+              <CardTitle className="text-[#96a793]">Data Store</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-400">No data sources yet</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Right Column - Chat */}
+        <div className="md:col-span-2">
+          <Card className="h-full flex flex-col bg-gray-900 border border-[#96a793]">
+            <CardHeader>
+              <CardTitle className="text-[#96a793]">Chat</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col h-full">
+              {/* Messages Area */}
+              <div className="flex-1 overflow-y-auto space-y-4 p-2">
+                {messages.length === 0 && (
+                  <p className="text-gray-500 text-center">
+                    Ask questions about your data...
+                  </p>
+                )}
+                {messages.map((msg, idx) => (
+                  <div
+                    key={idx}
+                    className={`flex items-start gap-2 ${
+                      msg.sender === "user" ? "justify-end" : "justify-start"
+                    }`}
+                  >
+                    {/* Avatar */}
+                    {msg.sender === "bot" && (
+                      <div className="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center text-white">
+                        🤖
+                      </div>
+                    )}
+                    <div
+                      className={`p-2 rounded-lg max-w-[70%] ${
+                        msg.sender === "user"
+                          ? "bg-[#39ff14] text-black"
+                          : "bg-gray-800 text-gray-200"
+                      }`}
+                    >
+                      {msg.text}
+                    </div>
+                    {msg.sender === "user" && (
+                      <div className="w-10 h-10 rounded-full bg-[#39ff14] flex items-center justify-center text-black font-bold">
+                        U
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Input Box */}
+              <div className="flex gap-2 mt-4">
+                <Input
+                  placeholder="Ask about your data..."
+                  className="bg-gray-800 border border-[#96a793]/40"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSend()}
+                />
+                <Button className={buttonClass} onClick={handleSend}>
+                  Send
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }
