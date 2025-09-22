@@ -83,39 +83,3 @@ async function ensureIndex(collectionName, fieldName, schemaType = "keyword") {
     throw err;
   }
 }
-
-// // Example usage (e.g. at server startup)
-// (async () => {
-//   await ensureIndexes("rag-collection");
-// })();
-
-// async function getPointIdsBySource(sourceName) {
-//   let ids = [];
-//   let offset = null;
-
-//   while (true) {
-//     const res = await client.scroll("rag-collection", {
-//       filter: {
-//         must: [
-//           {
-//             key: "metadata.source",
-//             match: { value: sourceName },
-//           },
-//         ],
-//       },
-//       offset,
-//       limit: 100, // fetch in chunks
-//       with_payload: true,
-//     });
-
-//     const { points, next_page_offset } = res;
-
-//     // collect all ids
-//     ids.push(...points.map((p) => p.id));
-
-//     if (!next_page_offset) break; // no more pages
-//     offset = next_page_offset;
-//   }
-
-//   return ids;
-// }

@@ -11,11 +11,9 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
-import { type } from "os";
 
 export default function RAGApp() {
   const [darkMode, setDarkMode] = useState(false);
-  const [fileContent, setFileContent] = useState(null);
   const [fileName, setFileName] = useState(null);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -24,63 +22,64 @@ export default function RAGApp() {
   const messagesEndRef = useRef(null);
   const [dataSources, setDataSources] = useState([]);
   const [link, setLink] = useState("");
+  const [addingText, setAddingText] = useState(false);
+  const [submittingLink, setSubmittingLink] = useState(false);
+  const [removingId, setRemovingId] = useState(null); // track which item is being removed
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   // 🔹 Streaming sendMessage
-  const sendMessage = async () => {
-    if (!input.trim() || loading) return;
-    setLoading(true);
+const sendMessage = async () => {
+  if (!input.trim() || loading) return;
+  setLoading(true);
 
-    // Add user message
-    const newMsg = { id: Date.now(), sender: "user", text: input };
-    setMessages((prev) => [...prev, newMsg]);
-    setInput("");
+  // Add user message
+  const userMsg = { id: Date.now(), sender: "user", text: input, timestamp:new Date().toISOString() };
+  setMessages((prev) => [...prev, userMsg]);
+  setInput("");
 
-    try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: newMsg.text }),
-      });
+  // Add placeholder assistant message
+  const assistantId = Date.now() + 1;
+  setMessages((prev) => [...prev, { id: assistantId, sender: "assistant", text: "", timestamp: new Date().toISOString() }]);
 
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let assistantMessage = "";
+  try {
+    const res = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: userMsg.text }),
+    });
 
-      // Streaming tokens
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        assistantMessage += decoder.decode(value, { stream: true });
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let assistantMessage = "";
 
-        setMessages((prev) => {
-          const newMsgs = [...prev];
-          const last = newMsgs[newMsgs.length - 1];
-          if (last?.sender === "assistant") {
-            last.text = assistantMessage;
-          } else {
-            newMsgs.push({
-              id: Date.now() + 1,
-              sender: "assistant",
-              text: assistantMessage,
-            });
-          }
-          return [...newMsgs];
-        });
-      }
-    } catch (err) {
-      console.error("Error fetching AI response:", err);
-      setMessages((prev) => [
-        ...prev,
-        { id: Date.now() + 2, sender: "assistant", text: "❌ Failed to get AI response" },
-      ]);
-    } finally {
-      setLoading(false);
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      assistantMessage += decoder.decode(value, { stream: true });
+
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === assistantId ? { ...msg, text: assistantMessage } : msg
+        )
+      );
     }
-  };
+  } catch (err) {
+    console.error("Error fetching AI response:", err);
+    setMessages((prev) =>
+      prev.map((msg) =>
+        msg.id === assistantId
+          ? { ...msg, text: "❌ Failed to get AI response" }
+          : msg
+      )
+    );
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", darkMode);
@@ -88,6 +87,8 @@ export default function RAGApp() {
 
   const handleText = async () => {
     if (!textData.trim()) return;
+
+    setAddingText(true);
     const tempId = Date.now();
     const sourceName = `text${tempId}`
     setDataSources((prev) => [
@@ -118,13 +119,17 @@ export default function RAGApp() {
       setDataSources((prev) =>
         prev.map((ds) => (ds.id === tempId ? { ...ds, status: "error" } : ds))
       );
+    }finally{
+      setAddingText(false)
     }
+
   };
 
   const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    
     const tempId = Date.now();
     setDataSources((prev) => [
       ...prev, 
@@ -166,9 +171,12 @@ export default function RAGApp() {
     }
   };
 const handleLink = async () => {
+    console.log("inside handele = ", link)
   if (!link.trim()) return;
+  console.log("inside handele link = ", link)
+  setSubmittingLink(true)
+
   const tempId = Date.now();
-  
   setDataSources((prev) => [
     ...prev,
     { id: tempId, type: "link", name: link, status: "indexing" }
@@ -198,13 +206,15 @@ const handleLink = async () => {
     setDataSources((prev) =>
       prev.map((ds) => (ds.id === tempId ? { ...ds, status: "error" } : ds))
     );
+  }finally{
+    setSubmittingLink(false)
   }
   
 };
 
 const handleDataStore = async (ds) => {
     console.log("ds = ", ds)
-
+  setRemovingId(ds.id)
   try {
     
   
@@ -226,6 +236,8 @@ const handleDataStore = async (ds) => {
   
   } catch (error) {
     console.log("error in deletin file", error)
+  }finally{
+    setRemovingId(null)
   }
 }
   return (
@@ -241,7 +253,7 @@ const handleDataStore = async (ds) => {
       </header>
 
       {/* Layout */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
         {/* Left Column */}
         <div className="flex flex-col gap-6">
           {/* Add Data */}
@@ -256,8 +268,8 @@ const handleDataStore = async (ds) => {
                 placeholder="Paste text content..."
                 className="bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
               />
-              <Button variant="default" onClick={handleText}>
-                Add Text
+              <Button variant="default" onClick={handleText} disabled={addingText}>
+                {addingText? "Adding...": "Add Text"}
               </Button>
 
               {/* File Input */}
@@ -271,12 +283,15 @@ const handleDataStore = async (ds) => {
               )}
 
               <Input
+                value={link}
+                onChange={(e) => setLink(e.target.value)}
                 placeholder="https://example.com"
                 className="bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
               />
               <Button variant="default"
                 onClick = {handleLink}
-              >Submit</Button>
+                disabled={submittingLink}
+              > {submittingLink ? "Submitting" : "Submit"}</Button>
             </CardContent>
           </Card>
 
@@ -300,21 +315,21 @@ const handleDataStore = async (ds) => {
                           <span className="truncate max-w-[200px]">{ds.name}</span>
                         </div>
 
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1">
                           {ds.status === "indexing" && (
                             <span className="animate-pulse text-blue-500">Indexing...</span>
                           )}
-                          {ds.status === "done" && <span className="text-green-500">✅ Done</span>}
-                          {ds.status === "error" && <span className="text-red-500">❌ Error</span>}
+                          {ds.status === "done" && <span className="text-green-500">✅ </span>}
+                          {ds.status === "error" && <span className="text-red-500">❌ </span>}
 
                           <Button
                             className={"cursor-pointer"}
-                            disabled = {ds.status === "indexing"}
+                            disabled = {ds.status === "indexing" || removingId === ds.id}
                             variant="ghost"
                             size="sm"
                             onClick={() => handleDataStore(ds)}
                           >
-                            Remove
+                            {removingId === ds.id ? "Removing" : "Remove"}
                           </Button>
                         </div>
                       </li>
@@ -337,69 +352,91 @@ const handleDataStore = async (ds) => {
               {/* Chat messages */}
               <div className="flex-1 overflow-y-auto space-y-4 pr-2">
                 {messages.map((msg) => (
-                  <div
-                    key={msg.id}
-                    className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
-                  >
                     <div
-                      className={`flex items-center gap-3 ${
-                        msg.sender === "user" ? "flex-row-reverse" : "flex-row"
-                      }`}
+                      key={msg.id}
+                      className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
                     >
-                      {msg.sender === "assistant" && (
-                        <MessageAvatar src="/ai.png" name="AI" />
-                      )}
-                      {msg.sender === "user" && (
-                        <MessageAvatar src="/user.png" name="U" />
-                      )}
-                      <Message from={msg.sender}>
-                        <MessageContent
-                          variant="contained"
-                          className={`px-3 py-2 rounded-lg shadow-sm max-w-[75ch] overflow-x-auto ${
-                            msg.sender === "user"
-                              ? "bg-green-500 text-white"
-                              : "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                          }`}
-                        >
-                          <ReactMarkdown
-                            remarkPlugins={[remarkGfm]}
-                            components={{
-                              code({ inline, className, children, ...props }) {
-                                const match = /language-(\w+)/.exec(className || "");
-                                return !inline && match ? (
-                                  <SyntaxHighlighter
-                                    style={oneDark}
-                                    language={match[1]}
-                                    PreTag="div"
-                                    {...props}
-                                  >
-                                    {String(children).replace(/\n$/, "")}
-                                  </SyntaxHighlighter>
-                                ) : (
-                                  <code className="bg-gray-200 dark:bg-gray-700 px-1 rounded" {...props}>
-                                    {children}
-                                  </code>
-                                );
-                              },
-                              a({ node, ...props }) {
-                                return (
-                                  <a
-                                    {...props}
-                                    className="text-blue-500 underline"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                  />
-                                );
-                              },
-                            }}
+                      <div
+                        className={`flex items-center gap-3 ${
+                          msg.sender === "user" ? "flex-row-reverse" : "flex-row"
+                        }`}
+                      >
+                        {msg.sender === "assistant" && <MessageAvatar src="/ai.png" name="AI" />}
+                        {msg.sender === "user" && <MessageAvatar src="/user.png" name="U" />}
+                        
+                        <Message from={msg.sender}>
+                          <MessageContent
+                            variant="contained"
+                            className={`px-3 py-2 rounded-lg shadow-sm max-w-[75ch] overflow-x-auto ${
+                              msg.sender === "user"
+                                ? "bg-green-500 text-white"
+                                : "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                            }`}
                           >
-                            {msg.text}
-                          </ReactMarkdown>
-                        </MessageContent>
-                      </Message>
+                            {msg.sender === "assistant" && msg.text === "" ? (
+                              // Typing indicator inside assistant bubble
+                              <div className="flex items-center gap-1">
+                                <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:0ms]"></span>
+                                <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:200ms]"></span>
+                                <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:400ms]"></span>
+                              </div>
+                            ) : (
+                              // Render the AI message as markdown
+                              <ReactMarkdown
+                                remarkPlugins={[remarkGfm]}
+                                components={{
+                                  code({ inline, className, children, ...props }) {
+                                    const match = /language-(\w+)/.exec(className || "");
+                                    return !inline && match ? (
+                                      <SyntaxHighlighter
+                                        style={oneDark}
+                                        language={match[1]}
+                                        PreTag="div"
+                                        {...props}
+                                      >
+                                        {String(children).replace(/\n$/, "")}
+                                      </SyntaxHighlighter>
+                                    ) : (
+                                      <code
+                                        className="bg-gray-200 dark:bg-gray-700 px-1 rounded"
+                                        {...props}
+                                      >
+                                        {children}
+                                      </code>
+                                    );
+                                  },
+                                  a({ node, ...props }) {
+                                    return (
+                                      <a
+                                        {...props}
+                                        className="text-blue-500 underline"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                      />
+                                    );
+                                  },
+                                }}
+                              >
+                                {msg.text}
+                              </ReactMarkdown>
+                            )}
+                          </MessageContent>
+                        </Message>
+                      </div>
+           {/* Show timestamp */}
+{msg.text && (
+  <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+    {new Date(msg.timestamp).toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    })}
+  </span>
+)}
                     </div>
-                  </div>
-                ))}
+                  ))}
+
+                 {/* Typing indicator */}
+                {/* {loading && <TypingIndicator sender={"assistant"}/>} */}
                 <div ref={messagesEndRef} />
               </div>
 

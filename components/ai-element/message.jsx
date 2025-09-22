@@ -49,7 +49,7 @@ export function MessageContent({ children, className, variant, ...props }) {
 
 export function MessageAvatar({ src, name, className, ...props }) {
   return (
-    <Avatar className={cn("size-8 ring-1 ring-border", className)} {...props}>
+    <Avatar className={cn("size-10", className)} {...props}>
       <AvatarImage alt="" src={src} />
       <AvatarFallback>{name?.slice(0, 2) || "🤖"}</AvatarFallback>
     </Avatar>

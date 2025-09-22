@@ -1,7 +1,9 @@
 import { OpenAIEmbeddings } from "@langchain/openai";
 import { QdrantVectorStore } from "@langchain/qdrant";
 import OpenAi from "openai"
+import { GoogleGenAI } from "@google/genai";
 
+const ai = new GoogleGenAI({});
 const client = new OpenAi({apiKey: process.env.OPENAI_API_KEY})
 export async function POST(req){
 
@@ -10,7 +12,18 @@ export async function POST(req){
         const body = await req.json()
         const userQuery = body.message;
         console.log("user query = ", userQuery)
-    
+        const QUERY_OPTIMIZE_SYSTEM_PROMPT = `You are user qury optimizer. you take user query and optimize user query into clear, concise
+        and well structure form that preserve original meaning. remove unneccessary word, fix grammer and make it suitable for serach or retrival.
+        Do NOT answer the query. Output ONLY the optimized query, nothing else. `;
+        const res = await ai.models.generateContent({
+                model: "gemini-2.5-flash",
+                contents: userQuery,
+                config: {
+                    systemInstruction: QUERY_OPTIMIZE_SYSTEM_PROMPT
+                }
+        });
+        const optimizeQuery = res.text
+        console.log("optimize query = ", optimizeQuery);
         const embeddings = new OpenAIEmbeddings({
              model: "text-embedding-3-large"
         });
@@ -27,23 +40,33 @@ export async function POST(req){
             k: 3
         })
     
-        const releventChunks = await vectorSearcher.invoke(userQuery)
+        const releventChunks = await vectorSearcher.invoke(optimizeQuery)
     
         const SYSTEM_PROMPT =   `You are an AI Assistant who help in resolving
-         user query based on context availble to you from PDF file with content and page number.
+         user query based on context available.the context may come from raw text, PDF (with page numbers)
+         or website document (with URLs)
          
-         Only ans based on the available context from file only
+         Rules:
+         
+         - Use only available context to answer. Do NOT use outside knowledge.
+         - If the context is from PDF then mention gtha page number in answer as refereces.
+         - If the context is from website document, provide URL of the source.
+         - If multiple data source is provided then give answer according to only from that data source.
+         - If some data source is missing then give response according to only available data source.
+         - If the answer is cannot be found in the available context, then give response 
+            "this question is out of context. Please ask question only related to provided context. "
+         - keep answer clear, concise and related to query.
          
          Context:
          ${JSON.stringify(releventChunks)}
          `
     
-         
+    
         const response = await client.chat.completions.create({
             model: 'gpt-4.1-mini',
             messages: [
                 {role:'system', content: SYSTEM_PROMPT},
-                {role:'user', content: userQuery}
+                {role:'user', content: optimizeQuery}
             ],
             stream: true,
         })

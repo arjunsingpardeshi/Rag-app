@@ -3,6 +3,8 @@ import { OpenAIEmbeddings } from "@langchain/openai";
 import { QdrantVectorStore } from "@langchain/qdrant";
 import { RecursiveCharacterTextSplitter } from "langchain/text_splitter"
 import {CheerioWebBaseLoader} from "@langchain/community/document_loaders/web/cheerio"
+import {RecursiveUrlLoader} from "@langchain/community/document_loaders/web/recursive_url"
+import * as cheerio from "cheerio"
 //import {TextLoader} from "langchain/community/document_loaders/fs/text"
 import path from "path";
 
@@ -16,12 +18,13 @@ export async function  POST(req) {
 
         const body = await req.json();
         
-        const { type, filePath, text, textName, url } = body;
+        const { type, filePath, text, textName, url, sourceId } = body;
         console.log("type = ",type)
         console.log("filepath = ",filePath)
         console.log("text = ",text)
         console.log("textName = ", textName)
         console.log("url = ",url)
+        console.log("sourceId", sourceId)
         //const pdfFilePath = body.filePath;
         //console.log("file path", pdfFilePath)
         if(type === "pdf")
@@ -78,8 +81,16 @@ export async function  POST(req) {
         
         else if(type==="link") {
 
-            const loader = new CheerioWebBaseLoader(url);
-            
+            // const loader = new CheerioWebBaseLoader(url);
+            // const docs = await loader.load();
+            const loader = new RecursiveUrlLoader(url, {
+                maxDepth: 2,               //depth
+                extractor: (html) => {
+                    const $ = cheerio.load(html);
+                    return $("body").text()        //extract plain text
+                }
+            })
+
             const docs = await loader.load();
             const fileName = url;
 
